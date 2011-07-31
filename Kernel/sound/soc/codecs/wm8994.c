@@ -1842,9 +1842,10 @@ static int wm8994_resume(struct platform_device *pdev)
 	if (wm8994_power == 0) {
 		audio_power(1); /* Board Specific function */
 		wm8994_power = 1;
+		wm8994_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+		wm8994_enable_path(codec, wm8994_curr_path);
 	}
-	wm8994_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
-	wm8994_enable_path(codec, wm8994_curr_path);
+
 // Audio codec LDO enabled on path setting sequence because pop noise
 /*	
 	wm8994_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
