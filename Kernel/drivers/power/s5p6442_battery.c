@@ -92,7 +92,7 @@ void set_start_check_temp_adc_for_tsp() {start_noti_to_tsp=1;}
 #endif
 
 #define ADC_DATA_ARR_SIZE	6
-#define ADC_TOTAL_COUNT		20
+#define ADC_TOTAL_COUNT		100
 #define POLLING_INTERVAL	4000
 
 #ifdef __BATTERY_COMPENSATION__
@@ -614,11 +614,13 @@ static int s3c_get_bat_level(struct power_supply *bat_ps)
 	if (bat_vol > batt_full)
 	{
 		int temp = (batt_max - batt_full);
-		if (bat_vol > (batt_full + temp) || 
+		if (bat_vol > (batt_full + temp) ||
 				s3c_bat_info.bat_info.batt_is_full)
 			bat_level = 100;
 		else
-			bat_level = 90;
+		{
+		        bat_level = 90 + (((bat_vol - batt_full) *10) / temp);
+		}
 
 #ifdef __CHECK_CHG_CURRENT__
 		if (s3c_bat_info.bat_info.charging_enabled) {
@@ -632,38 +634,26 @@ static int s3c_get_bat_level(struct power_supply *bat_ps)
 	else if (batt_full >= bat_vol && bat_vol > batt_almost)
 	{
 		int temp = (batt_full - batt_almost) / 2;
-		if (bat_vol > (batt_almost + 86))
-			bat_level = 80;
-		else
-			bat_level = 70;
+		bat_level = 70 + (((bat_vol - batt_almost) *10) / temp);
 
 		dev_dbg(dev, "%s: (almost)level = %d\n", __func__, bat_level);
 	}
 	else if (batt_almost >= bat_vol && bat_vol > batt_high)
 	{
 		int temp = (batt_almost - batt_high) / 2;
-		if (bat_vol > (batt_high + 62))
-			bat_level = 60;
-		else
-			bat_level = 50;
+		bat_level = 50 + (((bat_vol - batt_high) *10) / temp);
 		dev_dbg(dev, "%s: (high)level = %d\n", __func__, bat_level );
 	}
 	else if (batt_high >= bat_vol && bat_vol > batt_medium)
 	{
 		int temp = (batt_high - batt_medium) / 2;
-		if (bat_vol > (batt_medium + 26))
-			bat_level = 40;
-		else
-			bat_level = 30;
+		bat_level = 30 + (((bat_vol - batt_medium) *10) / temp);
 		dev_dbg(dev, "%s: (med)level = %d\n", __func__, bat_level);
 	}
 	else if (batt_medium >= bat_vol && bat_vol > batt_low)
 	{
 		int temp = (batt_medium - batt_low) / 2;
-		if (bat_vol > (batt_low + 50))
-			bat_level = 20;
-		else
-			bat_level = 15;		
+		bat_level = 15 + ((( bat_vol - batt_low) *5) / temp);
 		dev_dbg(dev, "%s: (low)level = %d\n", __func__, bat_level);
 	}
 	else if (batt_low >= bat_vol && bat_vol > batt_critical)
