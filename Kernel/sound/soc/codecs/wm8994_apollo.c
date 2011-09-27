@@ -8,7 +8,11 @@
 #include <plat/regs-clock.h>
 #include <mach/apollo.h>
 
-#include "wm8994_def.h"
+//#ifdef CONFIG_SND_VOODOO
+#include "wm8994_voodoo.h"
+//#endif
+
+#include "wm8994.h"
 #include "wm8994_gain.h"
 
 //#define DAC_TO_DIRECT_HPOUT1 // when playback headset, DAC1 directly connected to HPOUT1 mixer (not passed through MIXOUTL R)
@@ -162,7 +166,10 @@ void wm8994_disable_playback_path(struct snd_soc_codec *codec, int mode)
 void wm8994_playback_route_headset(struct snd_soc_codec *codec)
 {
    u16 val;
-   
+   struct wm8994_priv *wm8994 = codec->private_data;
+   wm8994->stream_state |= PLAYBACK_ACTIVE;
+   wm8994->stream_state |= PCM_STREAM_PLAYBACK;
+
    u16 TestReturn1=0;
    u16 TestReturn2=0;
    u16 TestLow1=0;
@@ -416,6 +423,9 @@ void wm8994_playback_route_headset(struct snd_soc_codec *codec)
 void wm8994_playback_route_speaker(struct snd_soc_codec *codec)
 {
    u16 val;
+   struct wm8994_priv *wm8994 = codec->private_data;
+   wm8994->stream_state |= PLAYBACK_ACTIVE;
+   wm8994->stream_state |= PCM_STREAM_PLAYBACK;
 
    printk("%s() \n",__func__);
 
@@ -651,6 +661,10 @@ void wm8994_playback_route_receiver(struct snd_soc_codec *codec)
    wm8994_write(codec,WM8994_DAC1_RIGHT_VOLUME,val);
    // AIF Clock enable & SYSCLK select : AIF1+SYSCLK=AIF1
    wm8994_write(codec,WM8994_CLOCKING_1, 0x000A );
+
+#ifdef CONFIG_SND_VOODOO
+  voodoo_hook_playback_speaker();
+#endif
 
 /* ==================== Output Path Configuration ==================== */
    //SPKMIXL, SPKLVOL PGA enable
@@ -1397,6 +1411,10 @@ void wm8994_record_main_mic(struct snd_soc_codec *codec)
       val |= (WM8994_AIF1ADC1_VU | 0xC0); // 0dB
       wm8994_write(codec,WM8994_AIF1_ADC1_LEFT_VOLUME, val);
    }
+
+#ifdef CONFIG_SND_VOODOO_RECORD_PRESETS
+      voodoo_hook_record_main_mic();
+#endif
 }
 
 void wm8994_record_sub_mic(struct snd_soc_codec *codec) 
@@ -2707,7 +2725,7 @@ void wm8994_fmradio_route_speaker(struct snd_soc_codec *codec)
 
    msleep(20);
 
-   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0000 );
+   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0001 );
 
    wm8994_write(codec, WM8994_AIF2_DAC_FILTERS_1, 0x0000 ); // SMbus_16inx_16dat     Write  0x34
 
@@ -3177,7 +3195,7 @@ void wm8994_fmradio_route_headset(struct snd_soc_codec *codec)
 
    wm8994_write(codec, WM8994_ANALOGUE_HP_1, 0x00EE );
 
-   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0000 );
+   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0001 );
     
    wm8994_write(codec, WM8994_AIF2_DAC_FILTERS_1, 0x0030 ); // SMbus_16inx_16dat     Write  0x34
 
@@ -3638,7 +3656,7 @@ void wm8994_fmradio_route_speaker_headset(struct snd_soc_codec *codec)
 
    wm8994_write(codec, WM8994_ANALOGUE_HP_1, 0x00EE );
 
-   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0000 );
+   wm8994_write(codec, WM8994_OVERSAMPLING, 0x0001 );
 
    wm8994_write(codec, WM8994_AIF2_DAC_FILTERS_1, 0x0030 ); // SMbus_16inx_16dat     Write  0x34
 
@@ -4086,6 +4104,8 @@ int wm8994_disable_path(struct snd_soc_codec *codec, int mode)
 
 int wm8994_enable_path(struct snd_soc_codec *codec, int mode)
 {
+   struct wm8994_priv *wm8994 = codec->private_data;
+
    int SndMethod = mode & 0xF0;
    int SndDevice = mode & 0x0F;
    
@@ -4096,6 +4116,9 @@ int wm8994_enable_path(struct snd_soc_codec *codec, int mode)
    {
       case MM_AUDIO_PLAYBACK:
       {
+	wm8994->codec_state |= PLAYBACK_ACTIVE;
+	wm8994->stream_state |= PCM_STREAM_PLAYBACK;
+
          if( SndDevice == MM_AUDIO_OUT_RCV )
          {
             wm8994_playback_route_receiver(codec);
@@ -4125,6 +4148,8 @@ int wm8994_enable_path(struct snd_soc_codec *codec, int mode)
       
       case MM_AUDIO_VOICECALL:
       {
+	wm8994->codec_state |= CALL_ACTIVE;
+
          if( SndDevice == MM_AUDIO_OUT_RCV )
          {
             printk("routing voice path to RCV \n");
@@ -4154,6 +4179,8 @@ int wm8994_enable_path(struct snd_soc_codec *codec, int mode)
       
       case  MM_AUDIO_FMRADIO:
       {
+	wm8994->codec_state |= FMRADIO_ACTIVE;
+
          if( SndDevice == MM_AUDIO_OUT_RCV )
          {
             printk("###### MM_AUDIO_FMRADIO_RCV PATH IS NOT IMPLEMENTED ######\n");
@@ -4216,7 +4243,7 @@ int wm8994_change_path(struct snd_soc_codec *codec, int to_mode, int from_mode)
 {
    int ret = 1;
    u16 val = 0;
-   
+
    printk("%s : from_mode 0x%x, to_mode 0x%x ==> SPK\n", __func__, from_mode, to_mode);
    switch (to_mode) 
    {

@@ -31,7 +31,7 @@ snd-soc-wm8753-objs := wm8753.o
 snd-soc-wm8776-objs := wm8776.o
 snd-soc-wm8900-objs := wm8900.o
 snd-soc-wm8903-objs := wm8903.o
-snd-soc-wm8994-objs := wm8994.o wm8994_apollo.o wm8994_gain.o
+snd-soc-wm8994-objs := wm8994.o wm8994_apollo.o wm8994_gain.o wm8994_voodoo.o
 snd-soc-wm8940-objs := wm8940.o
 snd-soc-wm8960-objs := wm8960.o
 snd-soc-wm8961-objs := wm8961.o
@@ -39,6 +39,11 @@ snd-soc-wm8971-objs := wm8971.o
 snd-soc-wm8974-objs := wm8974.o
 snd-soc-wm8988-objs := wm8988.o
 snd-soc-wm8990-objs := wm8990.o
+
+ifeq ($(CONFIG_SND_VOODOO_MODULE),m)
+obj-$(CONFIG_SND_VOODOO_MODULE)  += voodoo-sound-tegrak-module/
+endif
+
 snd-soc-wm8993-objs := wm8993.o
 snd-soc-wm9081-objs := wm9081.o
 snd-soc-wm9705-objs := wm9705.o
@@ -99,3 +104,4 @@ obj-$(CONFIG_SND_SOC_WM_HUBS)	+= snd-soc-wm-hubs.o
 
 # Amp
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
+
